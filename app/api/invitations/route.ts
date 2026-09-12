@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       updatedAt: timestamp,
     }).returning();
     const url = new URL(request.url);
-    return Response.json({ invitation: withoutTokenHash(invitation), inviteUrl: `${url.origin}/rsvp/${token}` }, { status: 201 });
+    return Response.json({ invitation: withoutTokenHash(invitation), inviteUrl: `${url.origin}/rsvp/${invitation.id}` }, { status: 201 });
   } catch (error) {
     return jsonError(routeError(error), 500);
   }

@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { guests, invitations, orders } from "../../../../db/schema";
-import { jsonError, now, routeError, sha256 } from "../../_lib";
+import { invitationAccessCondition, jsonError, now, routeError } from "../../_lib";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -9,7 +9,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const payload = await request.json() as { token?: string; action?: "cancel" | "edit"; customizations?: Record<string, string> };
     const token = payload.token ?? new URL(request.url).searchParams.get("token") ?? request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
     const db = getDb();
-    const [invitation] = await db.select().from(invitations).where(eq(invitations.tokenHash, await sha256(token))).limit(1);
+    const [invitation] = await db.select().from(invitations).where(await invitationAccessCondition(token)).limit(1);
     if (!invitation || invitation.status === "rescinded" || !invitation.guestId) return jsonError("A valid invitation token is required.", 401);
     const [order] = await db.select().from(orders).where(and(eq(orders.id, id), eq(orders.guestId, invitation.guestId))).limit(1);
     if (!order) return jsonError("Order not found.", 404);

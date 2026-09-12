@@ -22,6 +22,10 @@ test("ships the real guest and host controls", async () => {
   assert.match(guest, /Changed your mind/);
   assert.match(guest, /Order alerts/);
   assert.match(guest, /Caf or decaf/);
+  assert.match(guest, /The room at the night before the day itself/);
+  assert.match(guest, /Copy .*’s link/);
+  assert.doesNotMatch(guest, />Invitation & RSVP</);
+  assert.doesNotMatch(guest, /fresh share link/i);
   assert.doesNotMatch(guest, /Add to Home Screen/);
   assert.match(host, /Start making/);
   assert.match(host, /Mark ready/);
@@ -29,4 +33,7 @@ test("ships the real guest and host controls", async () => {
   assert.match(host, /Invitation manager/);
   assert.match(host, /Declined/);
   assert.match(host, /parentGuestName/);
+  assert.match(host, /\+1 token/);
+  assert.match(host, /Copy link/);
+  assert.doesNotMatch(host, />New link</);
 });

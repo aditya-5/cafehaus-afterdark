@@ -2,7 +2,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../../db";
 import { getEventOrderViews } from "../../../../../db/read-models";
 import { drinks, events, guests, invitations } from "../../../../../db/schema";
-import { jsonError, normalizePhone, now, randomToken, routeError, sha256, withoutTokenHash } from "../../../_lib";
+import { invitationAccessCondition, jsonError, normalizePhone, now, randomToken, routeError, sha256, withoutTokenHash } from "../../../_lib";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -12,7 +12,7 @@ function titleCaseName(value: string) {
 
 async function findInvitation(token: string) {
   const db = getDb();
-  const [invitation] = await db.select().from(invitations).where(eq(invitations.tokenHash, await sha256(token))).limit(1);
+  const [invitation] = await db.select().from(invitations).where(await invitationAccessCondition(token)).limit(1);
   if (!invitation) return { db, invitation: null, event: null, guest: null };
   const [event] = await db.select().from(events).where(eq(events.id, invitation.eventId)).limit(1);
   const guest = invitation.guestId ? (await db.select().from(guests).where(eq(guests.id, invitation.guestId)).limit(1))[0] : null;
@@ -114,8 +114,9 @@ export async function POST(request: Request, context: RouteContext) {
         await result.db.update(invitations).set({ guestId: childGuestId, invitedName: plusOneName, invitedPhoneE164: plusOnePhone, status: "rsvped", rsvpedAt: timestamp, updatedAt: timestamp }).where(eq(invitations.id, activeChildInvite.id));
       } else {
         const childToken = randomToken();
-        await result.db.insert(invitations).values({ id: crypto.randomUUID(), eventId: result.event.id, guestId: childGuestId, parentGuestId: guest.id, invitedName: plusOneName, invitedPhoneE164: plusOnePhone, tokenHash: await sha256(childToken), status: "rsvped", rsvpedAt: timestamp, createdAt: timestamp, updatedAt: timestamp });
-        plusOneInviteUrl = `${new URL(request.url).origin}/rsvp/${childToken}`;
+        const childInvitationId = crypto.randomUUID();
+        await result.db.insert(invitations).values({ id: childInvitationId, eventId: result.event.id, guestId: childGuestId, parentGuestId: guest.id, invitedName: plusOneName, invitedPhoneE164: plusOnePhone, tokenHash: await sha256(childToken), status: "rsvped", rsvpedAt: timestamp, createdAt: timestamp, updatedAt: timestamp });
+        plusOneInviteUrl = `${new URL(request.url).origin}/rsvp/${childInvitationId}`;
       }
     } else {
       for (const childInvite of childInvites.filter((invitation) => invitation.status !== "rescinded")) {

@@ -2,11 +2,11 @@ import { and, count, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { drinks, events, guests, invitations, orders } from "../../../db/schema";
 import { getEventOrderViews } from "../../../db/read-models";
-import { jsonError, now, routeError, sha256 } from "../_lib";
+import { invitationAccessCondition, jsonError, now, routeError } from "../_lib";
 
 async function resolveGuest(token: string) {
   const db = getDb();
-  const [invitation] = await db.select().from(invitations).where(eq(invitations.tokenHash, await sha256(token))).limit(1);
+  const [invitation] = await db.select().from(invitations).where(await invitationAccessCondition(token)).limit(1);
   if (!invitation || invitation.status === "rescinded" || !invitation.guestId) return null;
   const [guest] = await db.select().from(guests).where(eq(guests.id, invitation.guestId)).limit(1);
   const [event] = await db.select().from(events).where(eq(events.id, invitation.eventId)).limit(1);

@@ -120,12 +120,13 @@ export function GuestExperience({ token }: { token: string }) {
     notify(snapshot?.guest ? "RSVP details updated" : "You’re on the list");
   };
 
-  const resharePlusOne = async () => {
+  const copyPlusOneLink = async () => {
     try {
       const result = await requestJson<{ inviteUrl: string }>(`/api/invitations/token/${encodeURIComponent(token)}/plus-one-link`, { method: "POST" });
-      setShareUrl(result.inviteUrl);
+      await navigator.clipboard.writeText(result.inviteUrl);
+      notify(`${snapshot?.plusOne?.firstName ?? "Guest"}’s link copied`);
     } catch (shareError) {
-      notify(shareError instanceof Error ? shareError.message : "Could not create a fresh guest link");
+      notify(shareError instanceof Error ? shareError.message : "Could not copy the guest link");
     }
   };
 
@@ -165,7 +166,7 @@ export function GuestExperience({ token }: { token: string }) {
     return (
       <main className="event-app">
         <div className="grain" aria-hidden="true" />
-        <RsvpForm snapshot={snapshot} onSave={saveRsvp} onResharePlusOne={resharePlusOne} />
+        <RsvpForm snapshot={snapshot} onSave={saveRsvp} onCopyPlusOneLink={copyPlusOneLink} />
         {shareUrl && <ShareCard url={shareUrl} onClose={() => setShareUrl("")} onToast={notify} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
@@ -182,7 +183,6 @@ export function GuestExperience({ token }: { token: string }) {
         <Brand />
         <div className="topbar-actions">
           <span className={`event-state ${snapshot.event.status}`}><i />{snapshot.event.status === "live" ? "Service live" : snapshot.event.status === "ended" ? "Evening ended" : "Before the night"}</span>
-          <button className="mode-button subtle" onClick={() => setRsvpOpen(true)}>Invitation & RSVP</button>
         </div>
       </header>
 
@@ -203,7 +203,7 @@ export function GuestExperience({ token }: { token: string }) {
         ))}
       </nav>
 
-      {rsvpOpen && <div className="modal-backdrop"><div className="rsvp-sheet"><button className="close-button" onClick={() => setRsvpOpen(false)} aria-label="Close">×</button><RsvpForm snapshot={snapshot} compact onSave={saveRsvp} onResharePlusOne={resharePlusOne} /></div></div>}
+      {rsvpOpen && <div className="modal-backdrop"><div className="rsvp-sheet"><button className="close-button" onClick={() => setRsvpOpen(false)} aria-label="Close">×</button><RsvpForm snapshot={snapshot} compact onSave={saveRsvp} onCopyPlusOneLink={copyPlusOneLink} /></div></div>}
       {selectedDrink && <DrinkCheckout drink={selectedDrink} tokens={snapshot.guest.tokenBalance} enabled={orderingAllowed} onClose={() => setSelectedDrink(null)} onSubmit={placeOrder} />}
       {editingOrder && <DrinkCheckout drink={snapshot.drinks.find((drink) => drink.id === editingOrder.drinkId) ?? null} tokens={snapshot.guest.tokenBalance} enabled existing={editingOrder.customizations} submitLabel="Save changes" onClose={() => setEditingOrder(null)} onSubmit={(customizations) => updateOrder(editingOrder, "edit", customizations)} />}
       {shareUrl && <ShareCard url={shareUrl} onClose={() => setShareUrl("")} onToast={notify} />}
@@ -218,10 +218,10 @@ function LoadingScreen() {
 
 function InvitationError({ message }: { message: string }) {
   const rescinded = /rescinded/i.test(message);
-  return <main className="event-app centered-state"><div className="grain" aria-hidden="true" /><Brand /><p className="section-label">Private evening</p><h1>{rescinded ? <>This invitation<br /><em>has closed.</em></> : <>That link doesn’t<br /><em>look right.</em></>}</h1><p className="intro">{rescinded ? "The host has withdrawn this invitation. If that seems unexpected, ask Aditya for a new link." : "Invitation links are unique. Open the original message again or ask Aditya to reissue yours."}</p></main>;
+  return <main className="event-app centered-state"><div className="grain" aria-hidden="true" /><Brand /><p className="section-label">Private evening</p><h1>{rescinded ? <>This invitation<br /><em>has closed.</em></> : <>That link doesn’t<br /><em>look right.</em></>}</h1><p className="intro">{rescinded ? "The host has withdrawn this invitation. If that seems unexpected, ask Aditya for a new link." : "Invitation links are unique. Open the original message again or ask Aditya to resend yours."}</p></main>;
 }
 
-function RsvpForm({ snapshot, onSave, onResharePlusOne, compact = false }: { snapshot: GuestSnapshot; onSave: (details: { firstName: string; phone: string; response: RsvpResponse; plusOne: { firstName: string; phone: string } | null }) => Promise<void>; onResharePlusOne: () => Promise<void>; compact?: boolean }) {
+function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, compact = false }: { snapshot: GuestSnapshot; onSave: (details: { firstName: string; phone: string; response: RsvpResponse; plusOne: { firstName: string; phone: string } | null }) => Promise<void>; onCopyPlusOneLink: () => Promise<void>; compact?: boolean }) {
   const [firstName, setFirstName] = useState(snapshot.guest?.firstName ?? snapshot.invitation.invitedName ?? "");
   const [phone, setPhone] = useState(snapshot.guest?.phoneE164 ?? snapshot.invitation.invitedPhoneE164 ?? "");
   const [response, setResponse] = useState<RsvpResponse>(snapshot.guest?.rsvpResponse ?? "yes");
@@ -264,7 +264,7 @@ function RsvpForm({ snapshot, onSave, onResharePlusOne, compact = false }: { sna
           {response !== "no" && <div className="plus-one-block">
             <div className="plus-one-row"><span><strong>Bringing one guest?</strong><small>They receive two tokens and their own private link.</small></span><button type="button" className={`switch ${bringingGuest ? "on" : ""}`} aria-pressed={bringingGuest} onClick={() => setBringingGuest((current) => !current)}><i /></button></div>
             {bringingGuest && <div className="plus-one-fields"><label className="field-label">Their first name<input required value={plusOneName} onChange={(event) => setPlusOneName(oneWordTitleCase(event.target.value))} /></label><label className="field-label">Their mobile number<input required value={plusOnePhone} onChange={(event) => setPlusOnePhone(event.target.value)} inputMode="tel" /></label></div>}
-            {bringingGuest && snapshot.plusOne && <button type="button" className="reshare-plus-one" onClick={() => void onResharePlusOne()}>Get a fresh share link for {snapshot.plusOne.firstName}</button>}
+            {bringingGuest && snapshot.plusOne && <button type="button" className="reshare-plus-one" onClick={() => void onCopyPlusOneLink()}>Copy {snapshot.plusOne.firstName}’s link</button>}
           </div>}
 
           <div className="rsvp-choice-row" aria-label="RSVP response">
@@ -272,7 +272,7 @@ function RsvpForm({ snapshot, onSave, onResharePlusOne, compact = false }: { sna
           </div>
           {formError && <p className="form-error">{formError}</p>}
           <button className="primary-button wide-submit" disabled={saving}>{saving ? "Saving…" : snapshot.guest ? "Save RSVP changes" : "RSVP for the evening"}</button>
-          <p className="form-footnote">Your mobile number stays with the guest list so Aditya can contact you or send a fresh private link.</p>
+          <p className="form-footnote">Your mobile number stays with the guest list so Aditya can contact you or resend your private link.</p>
         </form>
       </div>
     </section>
@@ -288,7 +288,7 @@ function CoffeePass({ snapshot, onRequestTokens }: { snapshot: GuestSnapshot; on
 function GuestHome({ snapshot, eventEnded, onRequestTokens, onOpenInvitation }: { snapshot: GuestSnapshot; eventEnded: boolean; onRequestTokens: () => Promise<void>; onOpenInvitation: () => void }) {
   const attending = snapshot.guest?.rsvpResponse === "yes";
   const visibleGuests = snapshot.guests.filter((guest) => guest.rsvpResponse === "yes");
-  return <><div className="eyebrow"><span>{formatEventDate(snapshot.event.startsAt)}</span><span>{eventEnded ? "Evening complete" : `${formatEventTime(snapshot.event.startsAt)} — late`}</span></div><section className="welcome-block"><p className="kicker">{eventEnded ? "Thank you for coming" : attending ? "RSVP confirmed · Canning Town" : `RSVP ${snapshot.guest?.rsvpResponse}`}</p><h1>{eventEnded ? <>Thanks for<br /><em>coming.</em></> : <>Good evening,<br /><em>{snapshot.guest?.firstName}.</em></>}</h1><p className="intro">{eventEnded ? "The coffee bar has closed, but the album and the evening’s details stay here." : attending ? "Your private pass is ready. Browse now; ordering wakes up when Aditya starts service." : "Your place is saved with your current response. You can update it at any time."}</p></section><section className="invitation-summary"><div><p className="section-label">Your invitation</p><h2>{formatEventDate(snapshot.event.startsAt)} · {formatEventTime(snapshot.event.startsAt)}</h2><p>{snapshot.event.address}</p></div><button className="secondary-button" onClick={onOpenInvitation}>View or change RSVP</button></section><CoffeePass snapshot={snapshot} onRequestTokens={onRequestTokens} /><section className="home-section more-section"><div className="section-row"><p className="section-label">The room tonight</p><span className="muted">{visibleGuests.length} coming</span></div><div className="guest-list-full">{visibleGuests.length ? visibleGuests.map((guest) => <span key={guest.firstName}>{guest.firstName}</span>) : <span>Guest list begins with you</span>}</div></section><section className="home-section"><p className="section-label">More for the evening</p><div className="extras-grid"><EventLink href={snapshot.event.albumUrl} icon="◫" title="Tonight’s photos" empty="Shared album will appear here" /><EventLink href={snapshot.event.playlistUrl} icon="♫" title="Collaborative YouTube playlist" empty="Playlist will appear here" /></div><div className="info-panel"><p className="section-label">House notes</p><div className="info-lines"><p><strong>Wi-Fi</strong><span>Details will be available at the flat.</span></p><p><strong>What to bring</strong><span>Just yourself—and anything you would particularly like to drink.</span></p><p><strong>Rooftop</strong><span>Keep the terrace gentle for the neighbours later in the evening.</span></p></div></div></section></>;
+  return <><div className="eyebrow"><span>{formatEventDate(snapshot.event.startsAt)}</span><span>{eventEnded ? "Evening complete" : `${formatEventTime(snapshot.event.startsAt)} — late`}</span></div><section className="welcome-block"><p className="kicker">{eventEnded ? "Thank you for coming" : attending ? "RSVP confirmed · Canning Town" : `RSVP ${snapshot.guest?.rsvpResponse}`}</p><h1>{eventEnded ? <>Thanks for<br /><em>coming.</em></> : <>Good evening,<br /><em>{snapshot.guest?.firstName}.</em></>}</h1><p className="intro">{eventEnded ? "The coffee bar has closed, but the album and the evening’s details stay here." : attending ? "Your private pass is ready. Browse now; ordering wakes up when Aditya starts service." : "Your place is saved with your current response. You can update it at any time."}</p></section><section className="invitation-summary"><div><p className="section-label">Your invitation</p><h2>{formatEventDate(snapshot.event.startsAt)} · {formatEventTime(snapshot.event.startsAt)}</h2><p>{snapshot.event.address}</p></div><button className="secondary-button" onClick={onOpenInvitation}>View or change RSVP</button></section><CoffeePass snapshot={snapshot} onRequestTokens={onRequestTokens} /><section className="home-section more-section"><div className="section-row"><p className="section-label">The room at the night before the day itself</p><span className="muted">{visibleGuests.length} coming</span></div><div className="guest-list-full">{visibleGuests.length ? visibleGuests.map((guest) => <span key={guest.firstName}>{guest.firstName}</span>) : <span>Guest list begins with you</span>}</div></section><section className="home-section"><p className="section-label">More for the evening</p><div className="extras-grid"><EventLink href={snapshot.event.albumUrl} icon="◫" title="Tonight’s photos" empty="Shared album will appear here" /><EventLink href={snapshot.event.playlistUrl} icon="♫" title="Collaborative YouTube playlist" empty="Playlist will appear here" /></div><div className="info-panel"><p className="section-label">House notes</p><div className="info-lines"><p><strong>Wi-Fi</strong><span>Details will be available at the flat.</span></p><p><strong>What to bring</strong><span>Just yourself—and anything you would particularly like to drink.</span></p><p><strong>Rooftop</strong><span>Keep the terrace gentle for the neighbours later in the evening.</span></p></div></div></section></>;
 }
 
 function EventLink({ href, icon, title, empty }: { href: string | null; icon: string; title: string; empty: string }) {

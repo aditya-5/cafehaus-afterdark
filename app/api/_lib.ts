@@ -1,4 +1,6 @@
 import process from "node:process";
+import { eq, or } from "drizzle-orm";
+import { invitations } from "../../db/schema";
 
 export function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -27,6 +29,10 @@ export async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function invitationAccessCondition(token: string) {
+  return or(eq(invitations.id, token), eq(invitations.tokenHash, await sha256(token)));
 }
 
 export function withoutTokenHash<T extends { tokenHash: string }>(value: T): Omit<T, "tokenHash"> {
