@@ -1,4 +1,3 @@
-import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import process from "node:process";
 import * as schema from "./schema";
@@ -26,7 +25,7 @@ export function getDb() {
   }
 
   if (!cachedDb || cachedUrl !== connectionString) {
-    cachedDb = drizzle(neon(connectionString), { schema });
+    cachedDb = drizzle(connectionString, { schema });
     cachedUrl = connectionString;
   }
 
