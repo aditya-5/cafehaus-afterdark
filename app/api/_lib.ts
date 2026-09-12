@@ -38,6 +38,34 @@ export function requireAdmin(request: Request) {
 }
 
 export function routeError(error: unknown) {
+  const diagnosticChain = [];
+  let current: unknown = error;
+
+  for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
+    const candidate = current as {
+      name?: unknown;
+      message?: unknown;
+      code?: unknown;
+      detail?: unknown;
+      hint?: unknown;
+      cause?: unknown;
+    };
+    const redact = (value: unknown) => typeof value === "string"
+      ? value.replace(/postgres(?:ql)?:\/\/\S+/gi, "[database URL redacted]")
+      : value;
+
+    diagnosticChain.push({
+      name: redact(candidate.name),
+      message: redact(candidate.message),
+      code: redact(candidate.code),
+      detail: redact(candidate.detail),
+      hint: redact(candidate.hint),
+    });
+    current = candidate.cause;
+  }
+
+  console.error("API route failure", diagnosticChain);
+
   const message = error instanceof Error ? error.message : "Unexpected server error";
   if (message.includes("relation") && message.includes("does not exist")) return "Database migration is not applied yet. Run the database migration before using this endpoint.";
   return message;
