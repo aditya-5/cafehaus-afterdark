@@ -1,6 +1,7 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { drinks, events, guests, invitations, orders } from "../../../db/schema";
+import { getEventOrderViews } from "../../../db/read-models";
 import { jsonError, now, routeError, sha256 } from "../_lib";
 
 async function resolveGuest(token: string) {
@@ -21,8 +22,13 @@ export async function GET(request: Request) {
     const token = tokenFromRequest(request);
     const resolved = await resolveGuest(token);
     if (!resolved) return jsonError("A valid invitation token is required.", 401);
-    const rows = await resolved.db.select().from(orders).where(eq(orders.guestId, resolved.guest.id)).orderBy(asc(orders.createdAt));
-    return Response.json({ event: resolved.event, guest: resolved.guest, orders: rows });
+    const globalOrders = await getEventOrderViews(resolved.db, resolved.event.id);
+    return Response.json({
+      event: resolved.event,
+      guest: resolved.guest,
+      orders: globalOrders.filter((order) => order.guestId === resolved.guest.id),
+      globalOrders,
+    });
   } catch (error) {
     return jsonError(routeError(error), 500);
   }

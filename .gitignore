@@ -39,6 +39,7 @@ yarn-error.log*
 /outputs/
 /work/
 *.tar.gz
+*.tsbuildinfo
 
 # Local Netlify folder
 .netlify

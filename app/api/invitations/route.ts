@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { invitations } from "../../../db/schema";
-import { jsonError, normalizePhone, now, randomToken, requireAdmin, routeError, sha256 } from "../_lib";
+import { jsonError, normalizePhone, now, randomToken, requireAdmin, routeError, sha256, withoutTokenHash } from "../_lib";
 
 export async function GET(request: Request) {
   const authError = requireAdmin(request);
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     if (!eventId) return jsonError("eventId is required");
     const db = getDb();
     const rows = await db.select().from(invitations).where(eq(invitations.eventId, eventId)).orderBy(desc(invitations.createdAt));
-    return Response.json({ invitations: rows });
+    return Response.json({ invitations: rows.map(withoutTokenHash) });
   } catch (error) {
     return jsonError(routeError(error), 500);
   }
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (authError) return authError;
   try {
     const payload = await request.json() as { eventId?: string; name?: string; phone?: string; parentGuestId?: string };
-    const name = payload.name?.trim().split(/\s+/)[0] ?? "";
+    const name = payload.name?.trim().split(/\s+/)[0]?.replace(/(^|[-'])\p{L}/gu, (letter) => letter.toUpperCase()) ?? "";
     const phone = normalizePhone(payload.phone ?? "");
     if (!payload.eventId || !name || !phone) return jsonError("eventId, name and phone are required");
     const token = randomToken();
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       updatedAt: timestamp,
     }).returning();
     const url = new URL(request.url);
-    return Response.json({ invitation, inviteUrl: `${url.origin}/rsvp/${token}` }, { status: 201 });
+    return Response.json({ invitation: withoutTokenHash(invitation), inviteUrl: `${url.origin}/rsvp/${token}` }, { status: 201 });
   } catch (error) {
     return jsonError(routeError(error), 500);
   }

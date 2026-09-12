@@ -13,25 +13,28 @@ async function render() {
   );
 }
 
-test("server-renders the Caféhaus event shell", async () => {
+test("server-renders the private Caféhaus landing page", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<title>Caféhaus After Dark<\/title>/i);
-  assert.match(html, /You&apos;re on|You&#x27;re on/);
-  assert.match(html, /Your response/);
-  assert.match(html, /RSVP yes/);
+  assert.match(html, /Invitation only/);
+  assert.match(html, /Already invited/);
+  assert.match(html, /original link/);
 });
 
-test("ships the core guest and host controls", async () => {
-  const page = await (await import("node:fs/promises")).readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /Tonight's menu|Tonight&apos;s menu/);
-  assert.match(page, /Add to order/);
-  assert.match(page, /Start making/);
-  assert.match(page, /Mark ready/);
-  assert.match(page, /Auto-archive/);
-  assert.match(page, /RsvpSheet/);
-  assert.match(page, /YouTube playlist/);
+test("ships the real guest and host controls", async () => {
+  const fs = await import("node:fs/promises");
+  const guest = await fs.readFile(new URL("../app/components/GuestExperience.tsx", import.meta.url), "utf8");
+  const host = await fs.readFile(new URL("../app/components/AdminExperience.tsx", import.meta.url), "utf8");
+  assert.match(guest, /Tonight’s/);
+  assert.match(guest, /Place order/);
+  assert.match(guest, /Global order line/);
+  assert.match(guest, /RSVP for the evening/);
+  assert.match(host, /Start making/);
+  assert.match(host, /Mark ready/);
+  assert.match(host, /Auto-archives/);
+  assert.match(host, /Invitation manager/);
 });

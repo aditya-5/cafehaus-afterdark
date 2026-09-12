@@ -29,6 +29,12 @@ export async function sha256(value: string) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+export function withoutTokenHash<T extends { tokenHash: string }>(value: T): Omit<T, "tokenHash"> {
+  const safe = { ...value } as Partial<T>;
+  delete safe.tokenHash;
+  return safe as Omit<T, "tokenHash">;
+}
+
 export function requireAdmin(request: Request) {
   const configured = process.env.ADMIN_API_KEY;
   const provided = request.headers.get("x-admin-key");

@@ -1,6 +1,6 @@
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { events, guests } from "../../../db/schema";
+import { events } from "../../../db/schema";
 import { jsonError, now, requireAdmin, routeError } from "../_lib";
 
 export async function GET(request: Request) {
@@ -8,10 +8,16 @@ export async function GET(request: Request) {
     const slug = new URL(request.url).searchParams.get("slug")?.trim();
     if (!slug) return jsonError("slug is required");
     const db = getDb();
-    const [event] = await db.select().from(events).where(eq(events.slug, slug)).limit(1);
+    const [event] = await db.select({
+      id: events.id,
+      slug: events.slug,
+      title: events.title,
+      status: events.status,
+      startsAt: events.startsAt,
+      endsAt: events.endsAt,
+    }).from(events).where(eq(events.slug, slug)).limit(1);
     if (!event) return jsonError("Event not found.", 404);
-    const guestRows = await db.select({ firstName: guests.firstName, rsvpResponse: guests.rsvpResponse }).from(guests).where(eq(guests.eventId, event.id)).orderBy(asc(guests.firstName));
-    return Response.json({ event, guests: guestRows });
+    return Response.json({ event });
   } catch (error) {
     return jsonError(routeError(error), 500);
   }
