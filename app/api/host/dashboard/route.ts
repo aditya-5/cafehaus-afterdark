@@ -23,10 +23,16 @@ export async function GET(request: Request) {
       getEventOrderViews(db, eventId),
     ]);
 
+    const guestsById = new Map(guestRows.map((guest) => [guest.id, guest]));
+
     return Response.json({
       event,
       guests: guestRows,
-      invitations: invitationRows.map(withoutTokenHash),
+      invitations: invitationRows.map((invitation) => ({
+        ...withoutTokenHash(invitation),
+        rsvpResponse: invitation.guestId ? guestsById.get(invitation.guestId)?.rsvpResponse ?? null : null,
+        parentGuestName: invitation.parentGuestId ? guestsById.get(invitation.parentGuestId)?.firstName ?? null : null,
+      })),
       drinks: drinkRows,
       orders: orderRows,
     });

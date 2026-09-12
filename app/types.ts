@@ -42,6 +42,11 @@ export type InvitationRecord = {
   updatedAt: string;
 };
 
+export type AdminInvitationRecord = InvitationRecord & {
+  rsvpResponse: RsvpResponse | null;
+  parentGuestName: string | null;
+};
+
 export type DrinkRecord = {
   id: string;
   eventId: string;
@@ -94,8 +99,7 @@ export type GuestSnapshot = {
 export type AdminSnapshot = {
   event: EventRecord;
   guests: GuestRecord[];
-  invitations: InvitationRecord[];
+  invitations: AdminInvitationRecord[];
   drinks: DrinkRecord[];
   orders: OrderView[];
 };
-

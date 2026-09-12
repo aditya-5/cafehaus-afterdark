@@ -439,3 +439,39 @@ a { color:inherit; }
   .admin-login { padding:16px; }
   .admin-login>section { padding:25px; }
 }
+
+/* RSVP truth, invitation access and mobile notification refinements */
+#nl-badge-frame { display:none !important; }
+.changed-mind-note { display:flex; gap:12px; margin-bottom:28px; padding:15px; border:1px solid rgba(197,111,77,.28); background:rgba(197,111,77,.07); color:var(--muted); font-size:11px; line-height:1.5; }
+.changed-mind-note>span { color:var(--coral); font-size:18px; }
+.changed-mind-note p { margin:0; }
+.changed-mind-note strong { color:var(--brown); }
+.reshare-plus-one { margin:-8px 0 20px; border:0; padding:0; background:transparent; color:var(--brown); font-size:11px; text-decoration:underline; text-underline-offset:4px; }
+.invitation-summary { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:36px 0 18px; padding:19px 21px; border:1px solid var(--line); background:rgba(255,255,255,.24); }
+.invitation-summary h2 { margin:8px 0 4px; color:var(--brown); font:400 21px "Iowan Old Style","Palatino Linotype",Georgia,serif; }
+.invitation-summary p:last-child { margin:0; color:var(--muted); font-size:11px; line-height:1.45; }
+.order-alert-control { display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:center; margin:16px 0 28px; padding:15px 17px; border:1px solid var(--line); background:rgba(255,255,255,.23); }
+.order-alert-control .alert-mark { color:var(--gold); font-size:18px; }
+.order-alert-control.system .alert-mark,.order-alert-control.in-page .alert-mark { color:var(--sage); }
+.order-alert-control strong,.order-alert-control small { display:block; }
+.order-alert-control strong { margin-top:4px; color:var(--brown); font-size:12px; }
+.order-alert-control small { margin-top:3px; color:var(--muted); font-size:10px; line-height:1.4; }
+.pin-label input { padding:16px 14px; color:var(--brown); font:600 28px/1 Georgia,serif; letter-spacing:.65em; text-align:center; }
+.balance-name { display:grid; gap:2px; }
+.balance-name small { margin-left:0; color:var(--coral); font-size:8px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.balance-chip.is-plus-one { border-style:dashed; }
+.balance-chip .request-badge { margin-left:auto; }
+.invite-status.response-yes { border-color:rgba(109,132,109,.32); background:rgba(109,132,109,.08); color:var(--sage); }
+.invite-status.response-maybe { border-color:rgba(180,134,73,.34); background:rgba(180,134,73,.08); color:var(--gold); }
+.invite-status.response-no { border-color:rgba(197,111,77,.34); background:rgba(197,111,77,.08); color:var(--coral); }
+.share-grid { display:grid; grid-template-columns:repeat(4,auto); }
+
+@media (max-width:850px) {
+  input,textarea,select { font-size:16px !important; }
+  .invitation-summary { align-items:flex-start; flex-direction:column; }
+  .invitation-summary .secondary-button { width:100%; }
+  .order-alert-control { grid-template-columns:auto 1fr; }
+  .order-alert-control .secondary-button { grid-column:1 / -1; width:100%; }
+  .balance-chip { min-height:49px; }
+  .share-grid { grid-template-columns:1fr 1fr; }
+}
