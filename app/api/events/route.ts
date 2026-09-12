@@ -41,6 +41,13 @@ export async function POST(request: Request) {
       playlistUrl: payload.playlistUrl ?? null,
       status: payload.status ?? "scheduled",
       orderingEnabled: payload.orderingEnabled ?? false,
+      serviceMode: payload.serviceMode ?? "closed",
+      serviceMessage: payload.serviceMessage ?? null,
+      oatMilkAvailable: payload.oatMilkAvailable ?? true,
+      decafAvailable: payload.decafAvailable ?? true,
+      rsvpDeadline: payload.rsvpDeadline ?? null,
+      mapsUrl: payload.mapsUrl ?? null,
+      nextOrderNumber: payload.nextOrderNumber ?? 0,
       createdAt: payload.createdAt ?? now(),
       updatedAt: now(),
     }).returning();

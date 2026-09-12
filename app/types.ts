@@ -1,5 +1,6 @@
 export type RsvpResponse = "yes" | "maybe" | "no";
 export type EventStatus = "scheduled" | "live" | "ended";
+export type ServiceMode = "closed" | "open" | "paused" | "last_orders";
 export type OrderStatus = "queued" | "making" | "ready" | "archived" | "cancelled";
 
 export type EventRecord = {
@@ -8,6 +9,13 @@ export type EventRecord = {
   title: string;
   status: EventStatus;
   orderingEnabled: boolean;
+  serviceMode: ServiceMode;
+  serviceMessage: string | null;
+  oatMilkAvailable: boolean;
+  decafAvailable: boolean;
+  rsvpDeadline: string | null;
+  mapsUrl: string | null;
+  nextOrderNumber: number;
   startsAt: string;
   endsAt: string | null;
   address: string;

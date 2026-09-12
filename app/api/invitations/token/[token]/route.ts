@@ -55,11 +55,11 @@ export async function POST(request: Request, context: RouteContext) {
     if (!result.invitation || !result.event) return jsonError("Invitation not found.", 404);
     if (result.invitation.status === "rescinded") return jsonError("This invitation has been rescinded.", 410);
 
-    const payload = await request.json() as { firstName?: string; phone?: string; response?: "yes" | "maybe" | "no"; plusOne?: { firstName?: string; phone?: string } | null };
+    const payload = await request.json() as { firstName?: string; response?: "yes" | "maybe" | "no"; plusOne?: { firstName?: string; phone?: string } | null };
     const firstName = normalizeFirstName(payload.firstName ?? "");
-    const phone = normalizePhone(payload.phone ?? "");
+    const phone = result.invitation.invitedPhoneE164;
     const response = payload.response;
-    if (!firstName || !/^\S+$/.test(firstName) || !phone || !response) return jsonError("firstName, phone and response are required");
+    if (!firstName || !/^\S+$/.test(firstName) || !response) return jsonError("firstName and response are required");
     if (!["yes", "maybe", "no"].includes(response)) return jsonError("response must be yes, maybe or no");
 
     const timestamp = now();

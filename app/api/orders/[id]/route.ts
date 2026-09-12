@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { guests, invitations, orders } from "../../../../db/schema";
+import { events, invitations, orders } from "../../../../db/schema";
 import { invitationAccessCondition, jsonError, now, routeError } from "../../_lib";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -16,13 +16,32 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (order.status !== "queued") return jsonError("Orders can only be changed while queued.", 409);
     const timestamp = now();
     if (payload.action === "cancel") {
-      await db.update(orders).set({ status: "cancelled", cancelledAt: timestamp }).where(eq(orders.id, order.id));
-      const [guest] = await db.select({ tokenBalance: guests.tokenBalance }).from(guests).where(eq(guests.id, invitation.guestId)).limit(1);
-      if (guest) await db.update(guests).set({ tokenBalance: guest.tokenBalance + 1, updatedAt: timestamp }).where(eq(guests.id, invitation.guestId));
-      return Response.json({ cancelled: true, tokensRefunded: 1 });
+      const cancellation = await db.execute(sql`
+        WITH cancelled_order AS (
+          UPDATE orders
+          SET status = 'cancelled', cancelled_at = ${timestamp}
+          WHERE id = ${order.id}
+            AND guest_id = ${invitation.guestId}
+            AND status = 'queued'
+          RETURNING guest_id
+        ),
+        refunded_guest AS (
+          UPDATE guests
+          SET token_balance = token_balance + 1, updated_at = ${timestamp}
+          WHERE id IN (SELECT guest_id FROM cancelled_order)
+          RETURNING token_balance
+        )
+        SELECT token_balance FROM refunded_guest
+      `);
+      if (!cancellation.rows.length) return jsonError("This order has already moved and cannot be cancelled.", 409);
+      return Response.json({ cancelled: true, tokensRefunded: 1, tokenBalance: Number((cancellation.rows[0] as { token_balance: number }).token_balance) });
     }
     if (payload.action === "edit") {
-      await db.update(orders).set({ customizationsJson: JSON.stringify(payload.customizations ?? {}) }).where(eq(orders.id, order.id));
+      const customizations = Object.fromEntries(Object.entries(payload.customizations ?? {}).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+      const [event] = await db.select().from(events).where(eq(events.id, invitation.eventId)).limit(1);
+      if (customizations.milk === "Oat milk" && !event?.oatMilkAvailable) return jsonError("Oat milk is unavailable tonight.", 409);
+      if (customizations.caffeine === "Decaf" && !event?.decafAvailable) return jsonError("Decaf is unavailable tonight.", 409);
+      await db.update(orders).set({ customizationsJson: JSON.stringify(customizations) }).where(eq(orders.id, order.id));
       return Response.json({ updated: true });
     }
     return jsonError("action must be cancel or edit");
