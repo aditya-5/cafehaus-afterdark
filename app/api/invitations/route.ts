@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { invitations } from "../../../db/schema";
-import { jsonError, normalizePhone, now, randomToken, requireAdmin, routeError, sha256, withoutTokenHash } from "../_lib";
+import { jsonError, normalizeFirstName, normalizePhone, now, randomToken, requireAdmin, routeError, sha256, withoutTokenHash } from "../_lib";
 
 export async function GET(request: Request) {
   const authError = requireAdmin(request);
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (authError) return authError;
   try {
     const payload = await request.json() as { eventId?: string; name?: string; phone?: string; parentGuestId?: string };
-    const name = payload.name?.trim().split(/\s+/)[0]?.replace(/(^|[-'])\p{L}/gu, (letter) => letter.toUpperCase()) ?? "";
+    const name = normalizeFirstName(payload.name ?? "");
     const phone = normalizePhone(payload.phone ?? "");
     if (!payload.eventId || !name || !phone) return jsonError("eventId, name and phone are required");
     const token = randomToken();

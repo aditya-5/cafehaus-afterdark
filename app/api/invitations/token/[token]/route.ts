@@ -2,13 +2,10 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../../db";
 import { getEventOrderViews } from "../../../../../db/read-models";
 import { drinks, events, guests, invitations } from "../../../../../db/schema";
-import { invitationAccessCondition, jsonError, normalizePhone, now, randomToken, routeError, sha256, withoutTokenHash } from "../../../_lib";
+import { invitationAccessCondition, jsonError, normalizeFirstName, normalizePhone, now, randomToken, routeError, sha256, withoutTokenHash } from "../../../_lib";
+import { rescindInvitationAndGuestState } from "../../../_invitations";
 
 type RouteContext = { params: Promise<{ token: string }> };
-
-function titleCaseName(value: string) {
-  return value.trim().split(/\s+/)[0]?.replace(/(^|[-'])\p{L}/gu, (letter) => letter.toUpperCase()) ?? "";
-}
 
 async function findInvitation(token: string) {
   const db = getDb();
@@ -23,10 +20,9 @@ async function getPlusOne(db: ReturnType<typeof getDb>, guestId: string | undefi
   if (!guestId) return null;
   const childInvites = await db.select().from(invitations).where(eq(invitations.parentGuestId, guestId)).orderBy(desc(invitations.createdAt));
   const childInvite = childInvites.find((invitation) => invitation.status !== "rescinded");
-  if (!childInvite?.guestId) return null;
-  const [childGuest] = await db.select().from(guests).where(eq(guests.id, childInvite.guestId)).limit(1);
-  if (!childGuest) return null;
-  return { firstName: childGuest.firstName, phone: childGuest.phoneE164, response: childGuest.rsvpResponse, invitationId: childInvite.id, status: childInvite.status };
+  if (!childInvite) return null;
+  const childGuest = childInvite.guestId ? (await db.select().from(guests).where(eq(guests.id, childInvite.guestId)).limit(1))[0] : null;
+  return { firstName: childGuest?.firstName ?? childInvite.invitedName, phone: childGuest?.phoneE164 ?? childInvite.invitedPhoneE164, response: childGuest?.rsvpResponse ?? null, invitationId: childInvite.id, status: childInvite.status };
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -60,7 +56,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (result.invitation.status === "rescinded") return jsonError("This invitation has been rescinded.", 410);
 
     const payload = await request.json() as { firstName?: string; phone?: string; response?: "yes" | "maybe" | "no"; plusOne?: { firstName?: string; phone?: string } | null };
-    const firstName = titleCaseName(payload.firstName ?? "");
+    const firstName = normalizeFirstName(payload.firstName ?? "");
     const phone = normalizePhone(payload.phone ?? "");
     const response = payload.response;
     if (!firstName || !/^\S+$/.test(firstName) || !phone || !response) return jsonError("firstName, phone and response are required");
@@ -69,17 +65,21 @@ export async function POST(request: Request, context: RouteContext) {
     const timestamp = now();
     let guest = result.guest;
     if (guest) {
-      await result.db.update(guests).set({ firstName, phoneE164: phone, rsvpResponse: response, updatedAt: timestamp }).where(eq(guests.id, guest.id));
-      guest = { ...guest, firstName, phoneE164: phone, rsvpResponse: response };
+      const tokenBalance = response === "yes" ? (guest.tokenBalance > 0 ? guest.tokenBalance : 2) : 0;
+      const tokenRequestStatus = response === "yes" ? guest.tokenRequestStatus : "none";
+      await result.db.update(guests).set({ firstName, phoneE164: phone, rsvpResponse: response, tokenBalance, tokenRequestStatus, updatedAt: timestamp }).where(eq(guests.id, guest.id));
+      guest = { ...guest, firstName, phoneE164: phone, rsvpResponse: response, tokenBalance, tokenRequestStatus };
     } else {
       const existing = (await result.db.select().from(guests).where(and(eq(guests.eventId, result.event.id), eq(guests.phoneE164, phone))).limit(1))[0];
       if (existing) {
-        await result.db.update(guests).set({ firstName, rsvpResponse: response, updatedAt: timestamp }).where(eq(guests.id, existing.id));
-        guest = { ...existing, firstName, rsvpResponse: response };
+        const tokenBalance = response === "yes" ? (existing.tokenBalance > 0 ? existing.tokenBalance : 2) : 0;
+        await result.db.update(guests).set({ firstName, rsvpResponse: response, tokenBalance, tokenRequestStatus: "none", updatedAt: timestamp }).where(eq(guests.id, existing.id));
+        guest = { ...existing, firstName, rsvpResponse: response, tokenBalance, tokenRequestStatus: "none" };
       } else {
         const guestId = crypto.randomUUID();
-        await result.db.insert(guests).values({ id: guestId, eventId: result.event.id, firstName, phoneE164: phone, rsvpResponse: response, tokenBalance: 2, tokenRequestStatus: "none", createdAt: timestamp, updatedAt: timestamp });
-        guest = { id: guestId, eventId: result.event.id, firstName, phoneE164: phone, rsvpResponse: response, tokenBalance: 2, tokenRequestStatus: "none", createdAt: timestamp, updatedAt: timestamp };
+        const tokenBalance = response === "yes" ? 2 : 0;
+        await result.db.insert(guests).values({ id: guestId, eventId: result.event.id, firstName, phoneE164: phone, rsvpResponse: response, tokenBalance, tokenRequestStatus: "none", createdAt: timestamp, updatedAt: timestamp });
+        guest = { id: guestId, eventId: result.event.id, firstName, phoneE164: phone, rsvpResponse: response, tokenBalance, tokenRequestStatus: "none", createdAt: timestamp, updatedAt: timestamp };
       }
     }
 
@@ -90,38 +90,23 @@ export async function POST(request: Request, context: RouteContext) {
     let plusOneInviteUrl: string | undefined;
 
     if (response !== "no" && payload.plusOne?.firstName && payload.plusOne.phone) {
-      const plusOneName = titleCaseName(payload.plusOne.firstName);
+      const plusOneName = normalizeFirstName(payload.plusOne.firstName);
       const plusOnePhone = normalizePhone(payload.plusOne.phone);
       if (!/^\S+$/.test(plusOneName) || !plusOnePhone) return jsonError("plusOne must include a one-word firstName and phone");
       if (plusOnePhone === phone) return jsonError("Your guest needs their own phone number.");
 
-      const existingByPhone = (await result.db.select().from(guests).where(and(eq(guests.eventId, result.event.id), eq(guests.phoneE164, plusOnePhone))).limit(1))[0];
-      const activeChildGuest = activeChildInvite?.guestId ? (await result.db.select().from(guests).where(eq(guests.id, activeChildInvite.guestId)).limit(1))[0] : null;
-      const childGuest = existingByPhone ?? activeChildGuest;
-      const childGuestId = childGuest?.id ?? crypto.randomUUID();
-
-      if (childGuest) {
-        await result.db.update(guests).set({ firstName: plusOneName, phoneE164: plusOnePhone, rsvpResponse: "yes", updatedAt: timestamp }).where(eq(guests.id, childGuest.id));
+      if (activeChildInvite && activeChildInvite.invitedPhoneE164 === plusOnePhone) {
+        await result.db.update(invitations).set({ invitedName: plusOneName, invitedPhoneE164: plusOnePhone, updatedAt: timestamp }).where(eq(invitations.id, activeChildInvite.id));
       } else {
-        await result.db.insert(guests).values({ id: childGuestId, eventId: result.event.id, firstName: plusOneName, phoneE164: plusOnePhone, rsvpResponse: "yes", tokenBalance: 2, tokenRequestStatus: "none", createdAt: timestamp, updatedAt: timestamp });
-      }
-
-      if (activeChildGuest && activeChildGuest.id !== childGuestId) {
-        await result.db.update(guests).set({ rsvpResponse: "no", updatedAt: timestamp }).where(eq(guests.id, activeChildGuest.id));
-      }
-
-      if (activeChildInvite) {
-        await result.db.update(invitations).set({ guestId: childGuestId, invitedName: plusOneName, invitedPhoneE164: plusOnePhone, status: "rsvped", rsvpedAt: timestamp, updatedAt: timestamp }).where(eq(invitations.id, activeChildInvite.id));
-      } else {
+        if (activeChildInvite) await rescindInvitationAndGuestState(result.db, activeChildInvite.id, timestamp);
         const childToken = randomToken();
         const childInvitationId = crypto.randomUUID();
-        await result.db.insert(invitations).values({ id: childInvitationId, eventId: result.event.id, guestId: childGuestId, parentGuestId: guest.id, invitedName: plusOneName, invitedPhoneE164: plusOnePhone, tokenHash: await sha256(childToken), status: "rsvped", rsvpedAt: timestamp, createdAt: timestamp, updatedAt: timestamp });
+        await result.db.insert(invitations).values({ id: childInvitationId, eventId: result.event.id, parentGuestId: guest.id, invitedName: plusOneName, invitedPhoneE164: plusOnePhone, tokenHash: await sha256(childToken), status: "sent", createdAt: timestamp, updatedAt: timestamp });
         plusOneInviteUrl = `${new URL(request.url).origin}/rsvp/${childInvitationId}`;
       }
     } else {
       for (const childInvite of childInvites.filter((invitation) => invitation.status !== "rescinded")) {
-        await result.db.update(invitations).set({ status: "rescinded", rescindedAt: timestamp, updatedAt: timestamp }).where(eq(invitations.id, childInvite.id));
-        if (childInvite.guestId) await result.db.update(guests).set({ rsvpResponse: "no", updatedAt: timestamp }).where(eq(guests.id, childInvite.guestId));
+        await rescindInvitationAndGuestState(result.db, childInvite.id, timestamp);
       }
     }
 

@@ -11,14 +11,25 @@ export function now() {
 }
 
 export function normalizePhone(value: string) {
-  const digits = value.replace(/[^\d+]/g, "").replace(/^\+/, "");
-  if (!digits) return "";
+  const compact = value.trim();
+  if (!/^(?:\+|00)?\d{7,15}$/.test(compact)) return "";
+  const digits = compact.replace(/^\+/, "");
   if (digits.startsWith("00")) return normalizePhone(digits.slice(2));
-  if (digits.startsWith("440")) return `+44${digits.slice(3)}`;
-  if (digits.startsWith("44")) return `+44${digits.slice(2).replace(/^0/, "")}`;
-  if (digits.startsWith("0")) return `+44${digits.slice(1)}`;
-  if (digits.startsWith("7")) return `+44${digits}`;
-  return `+${digits}`;
+  const normalized = digits.startsWith("440")
+    ? `+44${digits.slice(3)}`
+    : digits.startsWith("44")
+      ? `+44${digits.slice(2).replace(/^0/, "")}`
+      : digits.startsWith("0")
+        ? `+44${digits.slice(1)}`
+        : digits.startsWith("7")
+          ? `+44${digits}`
+          : `+${digits}`;
+  return /^\+\d{8,15}$/.test(normalized) ? normalized : "";
+}
+
+export function normalizeFirstName(value: string) {
+  const firstWord = value.trim().split(/\s+/)[0]?.toLocaleLowerCase("en-GB") ?? "";
+  return firstWord.replace(/(^|[-'])\p{L}/gu, (letter) => letter.toLocaleUpperCase("en-GB"));
 }
 
 export function randomToken() {

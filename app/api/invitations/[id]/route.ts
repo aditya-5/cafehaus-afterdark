@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { invitations } from "../../../../db/schema";
 import { jsonError, now, requireAdmin, routeError, withoutTokenHash } from "../../_lib";
+import { rescindInvitationAndGuestState } from "../../_invitations";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const authError = requireAdmin(request);
@@ -17,7 +18,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!existing) return jsonError("Invitation not found.", 404);
 
     const timestamp = now();
-    const [invitation] = await db.update(invitations).set({ status: "rescinded", rescindedAt: timestamp, updatedAt: timestamp }).where(eq(invitations.id, id)).returning();
+    await rescindInvitationAndGuestState(db, id, timestamp);
+    const [invitation] = await db.select().from(invitations).where(eq(invitations.id, id)).limit(1);
     return Response.json({ invitation: withoutTokenHash(invitation) });
   } catch (error) {
     return jsonError(routeError(error), 500);

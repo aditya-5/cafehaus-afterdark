@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DrinkRecord, GuestSnapshot, OrderStatus, OrderView, RsvpResponse } from "../types";
-import { customizationLine, formatClock, formatEventDate, formatEventTime, oneWordTitleCase, requestJson } from "../lib/client";
+import { customizationLine, formatClock, formatEventDate, formatEventTime, oneWordTitleCase, phoneInput, requestJson } from "../lib/client";
 import { Brand } from "./Brand";
 
 type GuestTab = "home" | "menu" | "orders";
@@ -130,6 +130,12 @@ export function GuestExperience({ token }: { token: string }) {
     }
   };
 
+  const removePlusOne = async () => {
+    await requestJson(`/api/invitations/token/${encodeURIComponent(token)}/plus-one-link`, { method: "DELETE" });
+    await load(true);
+    notify("Guest removed and invitation rescinded");
+  };
+
   const placeOrder = async (customizations: Record<string, string>) => {
     if (!selectedDrink) return;
     await requestJson(`/api/orders`, {
@@ -166,7 +172,7 @@ export function GuestExperience({ token }: { token: string }) {
     return (
       <main className="event-app">
         <div className="grain" aria-hidden="true" />
-        <RsvpForm snapshot={snapshot} onSave={saveRsvp} onCopyPlusOneLink={copyPlusOneLink} />
+        <RsvpForm snapshot={snapshot} onSave={saveRsvp} onCopyPlusOneLink={copyPlusOneLink} onRemovePlusOne={removePlusOne} />
         {shareUrl && <ShareCard url={shareUrl} onClose={() => setShareUrl("")} onToast={notify} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </main>
@@ -203,7 +209,7 @@ export function GuestExperience({ token }: { token: string }) {
         ))}
       </nav>
 
-      {rsvpOpen && <div className="modal-backdrop"><div className="rsvp-sheet"><button className="close-button" onClick={() => setRsvpOpen(false)} aria-label="Close">×</button><RsvpForm snapshot={snapshot} compact onSave={saveRsvp} onCopyPlusOneLink={copyPlusOneLink} /></div></div>}
+      {rsvpOpen && <div className="modal-backdrop"><div className="rsvp-sheet"><button className="close-button" onClick={() => setRsvpOpen(false)} aria-label="Close">×</button><RsvpForm snapshot={snapshot} compact onSave={saveRsvp} onCopyPlusOneLink={copyPlusOneLink} onRemovePlusOne={removePlusOne} /></div></div>}
       {selectedDrink && <DrinkCheckout drink={selectedDrink} tokens={snapshot.guest.tokenBalance} enabled={orderingAllowed} onClose={() => setSelectedDrink(null)} onSubmit={placeOrder} />}
       {editingOrder && <DrinkCheckout drink={snapshot.drinks.find((drink) => drink.id === editingOrder.drinkId) ?? null} tokens={snapshot.guest.tokenBalance} enabled existing={editingOrder.customizations} submitLabel="Save changes" onClose={() => setEditingOrder(null)} onSubmit={(customizations) => updateOrder(editingOrder, "edit", customizations)} />}
       {shareUrl && <ShareCard url={shareUrl} onClose={() => setShareUrl("")} onToast={notify} />}
@@ -221,18 +227,24 @@ function InvitationError({ message }: { message: string }) {
   return <main className="event-app centered-state"><div className="grain" aria-hidden="true" /><Brand /><p className="section-label">Private evening</p><h1>{rescinded ? <>This invitation<br /><em>has closed.</em></> : <>That link doesn’t<br /><em>look right.</em></>}</h1><p className="intro">{rescinded ? "The host has withdrawn this invitation. If that seems unexpected, ask Aditya for a new link." : "Invitation links are unique. Open the original message again or ask Aditya to resend yours."}</p></main>;
 }
 
-function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, compact = false }: { snapshot: GuestSnapshot; onSave: (details: { firstName: string; phone: string; response: RsvpResponse; plusOne: { firstName: string; phone: string } | null }) => Promise<void>; onCopyPlusOneLink: () => Promise<void>; compact?: boolean }) {
+function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, onRemovePlusOne, compact = false }: { snapshot: GuestSnapshot; onSave: (details: { firstName: string; phone: string; response: RsvpResponse; plusOne: { firstName: string; phone: string } | null }) => Promise<void>; onCopyPlusOneLink: () => Promise<void>; onRemovePlusOne: () => Promise<void>; compact?: boolean }) {
   const [firstName, setFirstName] = useState(snapshot.guest?.firstName ?? snapshot.invitation.invitedName ?? "");
   const [phone, setPhone] = useState(snapshot.guest?.phoneE164 ?? snapshot.invitation.invitedPhoneE164 ?? "");
-  const [response, setResponse] = useState<RsvpResponse>(snapshot.guest?.rsvpResponse ?? "yes");
+  const [response, setResponse] = useState<RsvpResponse | null>(snapshot.guest?.rsvpResponse ?? null);
   const [bringingGuest, setBringingGuest] = useState(Boolean(snapshot.plusOne));
   const [plusOneName, setPlusOneName] = useState(snapshot.plusOne?.firstName ?? "");
   const [plusOnePhone, setPlusOnePhone] = useState(snapshot.plusOne?.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [removingGuest, setRemovingGuest] = useState(false);
   const [formError, setFormError] = useState("");
+  const plusOneResponse = snapshot.plusOne?.response === "yes" ? "Accepted" : snapshot.plusOne?.response === "maybe" ? "Maybe" : snapshot.plusOne?.response === "no" ? "Declined" : snapshot.plusOne?.status === "opened" ? "Invitation opened" : "Awaiting reply";
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!response) {
+      setFormError("Choose Yes, Maybe or No before saving.");
+      return;
+    }
     setSaving(true);
     setFormError("");
     try {
@@ -241,6 +253,19 @@ function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, compact = false }: { sn
       setFormError(submitError instanceof Error ? submitError.message : "Could not save your RSVP.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const removeGuest = async () => {
+    setRemovingGuest(true);
+    setFormError("");
+    try {
+      await onRemovePlusOne();
+      setBringingGuest(false);
+    } catch (removeError) {
+      setFormError(removeError instanceof Error ? removeError.message : "Could not remove this guest.");
+    } finally {
+      setRemovingGuest(false);
     }
   };
 
@@ -259,19 +284,19 @@ function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, compact = false }: { sn
           <p className="section-label">{snapshot.guest ? "Update RSVP" : "Your invitation"}</p>
           <div className="rsvp-address"><small>The evening is at</small><strong>{snapshot.event.address}</strong></div>
           <label className="field-label">First name<input required value={firstName} onChange={(event) => setFirstName(oneWordTitleCase(event.target.value))} autoComplete="given-name" /></label>
-          <label className="field-label">Mobile number<input required value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" autoComplete="tel" /></label>
+          <label className="field-label">Mobile number<input required value={phone} onChange={(event) => setPhone(phoneInput(event.target.value))} inputMode="tel" autoComplete="tel" pattern="\+?[0-9]{7,15}" maxLength={16} title="Use 7 to 15 digits, with an optional + at the start" /></label>
 
-          {response !== "no" && <div className="plus-one-block">
-            <div className="plus-one-row"><span><strong>Bringing one guest?</strong><small>They receive two tokens and their own private link.</small></span><button type="button" className={`switch ${bringingGuest ? "on" : ""}`} aria-pressed={bringingGuest} onClick={() => setBringingGuest((current) => !current)}><i /></button></div>
-            {bringingGuest && <div className="plus-one-fields"><label className="field-label">Their first name<input required value={plusOneName} onChange={(event) => setPlusOneName(oneWordTitleCase(event.target.value))} /></label><label className="field-label">Their mobile number<input required value={plusOnePhone} onChange={(event) => setPlusOnePhone(event.target.value)} inputMode="tel" /></label></div>}
-            {bringingGuest && snapshot.plusOne && <button type="button" className="reshare-plus-one" onClick={() => void onCopyPlusOneLink()}>Copy {snapshot.plusOne.firstName}’s link</button>}
+          {response !== "no" && !snapshot.invitation.parentGuestId && <div className="plus-one-block">
+            <div className="plus-one-row"><span><strong>Bringing one guest?</strong><small>They receive their own private invitation and choose Yes, Maybe or No themselves.</small></span>{snapshot.plusOne ? <span className={`plus-one-response ${snapshot.plusOne.response ?? "pending"}`}>{plusOneResponse}</span> : <button type="button" className={`switch ${bringingGuest ? "on" : ""}`} aria-pressed={bringingGuest} onClick={() => setBringingGuest((current) => !current)}><i /></button>}</div>
+            {bringingGuest && !snapshot.plusOne && <div className="plus-one-fields"><label className="field-label">Their first name<input required value={plusOneName} onChange={(event) => setPlusOneName(oneWordTitleCase(event.target.value))} /></label><label className="field-label">Their mobile number<input required value={plusOnePhone} onChange={(event) => setPlusOnePhone(phoneInput(event.target.value))} inputMode="tel" pattern="\+?[0-9]{7,15}" maxLength={16} title="Use 7 to 15 digits, with an optional + at the start" /></label></div>}
+            {snapshot.plusOne && <div className="plus-one-invite-card"><div><strong>{snapshot.plusOne.firstName}</strong><small>{snapshot.plusOne.phone}</small><p>{snapshot.plusOne.response ? `${snapshot.plusOne.firstName} replied ${plusOneResponse}.` : "Their place is not confirmed until they answer their own invitation."}</p></div><div className="plus-one-invite-actions"><button type="button" className="secondary-button" onClick={() => void onCopyPlusOneLink()}>Copy link</button><button type="button" className="remove-guest-button" disabled={removingGuest} onClick={() => void removeGuest()}>{removingGuest ? "Removing…" : "Remove guest"}</button></div></div>}
           </div>}
 
           <div className="rsvp-choice-row" aria-label="RSVP response">
             {(["yes", "maybe", "no"] as RsvpResponse[]).map((choice) => <button type="button" key={choice} className={response === choice ? "selected" : ""} onClick={() => { setResponse(choice); if (choice === "no") setBringingGuest(false); }}><strong>{choice === "yes" ? "Yes" : choice === "maybe" ? "Maybe" : "No"}</strong><small>{choice === "yes" ? "I’ll be there" : choice === "maybe" ? "Hold my place" : "Can’t make it"}</small></button>)}
           </div>
           {formError && <p className="form-error">{formError}</p>}
-          <button className="primary-button wide-submit" disabled={saving}>{saving ? "Saving…" : snapshot.guest ? "Save RSVP changes" : "RSVP for the evening"}</button>
+          <button className="primary-button wide-submit" disabled={saving || !response}>{saving ? "Saving…" : snapshot.guest ? "Save RSVP changes" : "RSVP for the evening"}</button>
           <p className="form-footnote">Your mobile number stays with the guest list so Aditya can contact you or resend your private link.</p>
         </form>
       </div>

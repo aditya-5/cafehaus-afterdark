@@ -15,10 +15,11 @@ export async function POST(request: Request) {
       if (!payload.guestId) return jsonError("guestId is required for this action");
       const [guest] = await db.select().from(guests).where(and(eq(guests.id, payload.guestId), eq(guests.eventId, payload.eventId))).limit(1);
       if (!guest) return jsonError("Guest not found.", 404);
+      if (guest.rsvpResponse !== "yes") return jsonError("Tokens can only be added to accepted guests.", 409);
       await db.update(guests).set({ tokenBalance: guest.tokenBalance + 1, tokenRequestStatus: payload.action === "fulfill_request" ? "fulfilled" : guest.tokenRequestStatus, updatedAt: timestamp }).where(eq(guests.id, guest.id));
       return Response.json({ guestId: guest.id, tokenBalance: guest.tokenBalance + 1 });
     }
-    const rows = await db.select().from(guests).where(eq(guests.eventId, payload.eventId));
+    const rows = await db.select().from(guests).where(and(eq(guests.eventId, payload.eventId), eq(guests.rsvpResponse, "yes")));
     for (const guest of rows) {
       await db.update(guests).set({ tokenBalance: payload.action === "reset_all" ? 2 : guest.tokenBalance + 1, tokenRequestStatus: payload.action === "reset_all" ? "fulfilled" : guest.tokenRequestStatus, updatedAt: timestamp }).where(eq(guests.id, guest.id));
     }

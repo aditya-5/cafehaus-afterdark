@@ -81,7 +81,7 @@ export type OrderView = {
 export type PlusOneRecord = {
   firstName: string;
   phone: string;
-  response: RsvpResponse;
+  response: RsvpResponse | null;
   invitationId: string;
   status: InvitationRecord["status"];
 };

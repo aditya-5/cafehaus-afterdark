@@ -6,8 +6,14 @@ export async function requestJson<T>(input: RequestInfo | URL, init?: RequestIni
 }
 
 export function oneWordTitleCase(value: string) {
-  const firstWord = value.trimStart().split(/\s+/)[0] ?? "";
-  return firstWord.replace(/(^|[-'])\p{L}/gu, (letter) => letter.toUpperCase());
+  const firstWord = value.trimStart().split(/\s+/)[0]?.toLocaleLowerCase("en-GB") ?? "";
+  return firstWord.replace(/(^|[-'])\p{L}/gu, (letter) => letter.toLocaleUpperCase("en-GB"));
+}
+
+export function phoneInput(value: string) {
+  const hasLeadingPlus = value.trimStart().startsWith("+");
+  const digits = value.replace(/\D/g, "").slice(0, 15);
+  return `${hasLeadingPlus ? "+" : ""}${digits}`;
 }
 
 export function formatEventDate(value: string) {

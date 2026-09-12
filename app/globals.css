@@ -225,6 +225,18 @@ h1 em { color:var(--brown); font-style:italic; }
 .plus-one-row strong { font-size:13px; }
 .plus-one-row small { max-width:360px; color:var(--muted); font-size:11px; line-height:1.45; }
 .plus-one-fields { margin:0 0 22px; padding:15px; border:1px solid rgba(197,111,77,.28); background:rgba(197,111,77,.06); }
+.plus-one-response { flex:0 0 auto; padding:6px 8px; border:1px solid var(--line); color:var(--gold); font-size:8px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+.plus-one-response.yes { border-color:rgba(109,132,109,.35); color:var(--sage); }
+.plus-one-response.no { border-color:rgba(197,111,77,.35); color:var(--coral); }
+.plus-one-invite-card { display:grid; grid-template-columns:1fr auto; gap:18px; align-items:center; margin:0 0 22px; padding:15px; border-left:3px solid var(--coral); background:rgba(197,111,77,.06); }
+.plus-one-invite-card strong,.plus-one-invite-card small { display:block; }
+.plus-one-invite-card strong { color:var(--brown); font:600 18px Georgia,serif; }
+.plus-one-invite-card small { margin-top:3px; color:var(--muted); font-size:9px; }
+.plus-one-invite-card p { margin:9px 0 0; color:var(--muted); font-size:10px; line-height:1.45; }
+.plus-one-invite-actions { display:grid; gap:7px; min-width:110px; }
+.plus-one-invite-actions .secondary-button { padding:8px 10px; }
+.remove-guest-button { border:0; padding:7px; background:transparent; color:var(--coral); font-size:9px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.remove-guest-button:disabled { opacity:.55; cursor:wait; }
 .rsvp-sheet .rsvp-guest-list { margin:26px 0 0; padding:0; }
 .remove-plus-one { margin-top:12px; }
 .switch { position:relative; flex:0 0 auto; width:48px; height:28px; border:0; border-radius:99px; background:#c8beb1; cursor:pointer; }
@@ -481,4 +493,6 @@ a { color:inherit; }
   .balance-strip { grid-template-columns:1fr; }
   .balance-chip { min-height:76px; }
   .share-grid { grid-template-columns:1fr 1fr; }
+  .plus-one-invite-card { grid-template-columns:1fr; }
+  .plus-one-invite-actions { grid-template-columns:1fr 1fr; }
 }
