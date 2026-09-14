@@ -22,7 +22,9 @@ test("ships the real guest and host controls", async () => {
   assert.match(guest, /Tonight’s/);
   assert.match(guest, /Place order/);
   assert.match(guest, /Global order line/);
-  assert.match(guest, /RSVP for the evening/);
+  assert.match(guest, /This is more than an RSVP/);
+  assert.match(guest, /Reply & enter the evening/);
+  assert.match(guest, /change between Yes, Maybe or No at any time/);
   assert.match(guest, /Changed your mind/);
   assert.match(guest, /Order alerts/);
   assert.match(guest, /recipe allergens/i);

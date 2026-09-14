@@ -2,8 +2,8 @@
 
 The schema is PostgreSQL-backed through an external Postgres provider (Neon is
 the planned provider) and lives in `schema.ts`. Drizzle applies the ordered SQL
-migrations in `../drizzle/migrations/` during the Netlify build. The second
-migration seeds Aditya's Rooftop Party for 12 October 2026.
+migrations in `../drizzle/migrations/` during the Netlify build. The migrations
+seed Aditya's Rooftop Party and update it to 18 October 2026.
 
 The production API reads `DATABASE_URL` and `ADMIN_API_KEY` from Netlify's
 server environment. Guest endpoints authenticate with the opaque invitation

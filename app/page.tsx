@@ -6,7 +6,7 @@ export default function Home() {
       <div className="grain" aria-hidden="true" />
       <header className="topbar"><Brand /><span className="private-chip">Private event</span></header>
       <section className="private-hero">
-        <p className="kicker">Aditya’s Rooftop Party · 12 October</p>
+        <p className="kicker">Aditya’s Rooftop Party · 18 October</p>
         <h1>Coffee upstairs.<br /><em>Invitation only.</em></h1>
         <p className="intro">Each guest receives a personal link by message. That link opens the RSVP, the guest list and—on the night—your coffee pass.</p>
         <div className="private-note"><span>✦</span><p><strong>Already invited?</strong><br />Open the original link Aditya sent you. It remains valid before, during and after the evening.</p></div>

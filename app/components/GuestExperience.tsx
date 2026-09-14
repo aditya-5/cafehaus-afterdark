@@ -303,8 +303,9 @@ function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, onSharePlusOneLink, onR
           {snapshot.guest?.rsvpResponse === "no" && <div className="changed-mind-note"><span>↺</span><p><strong>Changed your mind?</strong><br />Your invitation is still here. Choose Yes or Maybe below and save your response.</p></div>}
           <p className="kicker">A private rooftop invitation</p>
           <h1>{snapshot.guest?.rsvpResponse === "no" ? <>The door stays<br /><em>open.</em></> : snapshot.guest ? <>Your evening,<br /><em>your details.</em></> : <>You’re invited<br /><em>after dark.</em></>}</h1>
-          <p className="intro">Coffee made to order, one shared playlist, and Canning Town after sunset.</p>
+          <p className="intro">This is more than an RSVP. Reply below and your private link opens a first look at the whole evening.</p>
           <div className="rsvp-event-details"><span>{formatEventDate(snapshot.event.startsAt)}</span><span>{formatEventTime(snapshot.event.startsAt)} — late</span></div>
+          {!compact && <div className="rsvp-unlocks"><p className="section-label">What waits inside</p><div><span>Full coffee menu</span><span>Your coffee pass</span><span>Guest list</span><span>Playlist & photos</span></div><small>Take a sneak peek now, then return through this same link whenever you like—even to change your RSVP.</small></div>}
         </div>
         <form className="rsvp-form real-rsvp-form" onSubmit={submit}>
           <p className="section-label">{snapshot.guest ? "Update RSVP" : "Your invitation"}</p>
@@ -323,8 +324,8 @@ function RsvpForm({ snapshot, onSave, onCopyPlusOneLink, onSharePlusOneLink, onR
             {(["yes", "maybe", "no"] as RsvpResponse[]).map((choice) => <button type="button" key={choice} className={response === choice ? "selected" : ""} onClick={() => { setResponse(choice); if (choice === "no") setBringingGuest(false); }}><strong>{choice === "yes" ? "Yes" : choice === "maybe" ? "Maybe" : "No"}</strong><small>{choice === "yes" ? "I’ll be there" : choice === "maybe" ? "Hold my place" : "Can’t make it"}</small></button>)}
           </div>
           {formError && <p className="form-error">{formError}</p>}
-          <button className="primary-button wide-submit" disabled={saving || !response}>{saving ? "Saving…" : snapshot.guest ? "Save RSVP changes" : "RSVP for the evening"}</button>
-          <p className="form-footnote">Your private link—not your phone number—is what opens this invitation.</p>
+          <button className="primary-button wide-submit" disabled={saving || !response}>{saving ? "Saving…" : snapshot.guest ? "Save RSVP changes" : response === "no" ? "Save my response" : "Reply & enter the evening"}</button>
+          <p className="form-footnote">Keep this private link. It opens the event website and lets you change between Yes, Maybe or No at any time.</p>
         </form>
       </div>
     </section>

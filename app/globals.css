@@ -375,6 +375,10 @@ a { color:inherit; }
 .rsvp-editor .rsvp-invitation-copy h1 { margin:8px 0 12px; font-size:42px; }
 .rsvp-editor .rsvp-invitation-copy .intro { font-size:12px; }
 .rsvp-editor .rsvp-event-details { margin-top:18px; }
+.rsvp-unlocks { max-width:520px; margin-top:28px; padding:18px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.rsvp-unlocks>div { display:flex; flex-wrap:wrap; gap:7px; margin:11px 0 12px; }
+.rsvp-unlocks>div span { padding:7px 9px; border:1px solid rgba(180,134,73,.3); background:rgba(255,250,241,.36); color:var(--brown); font:10px/1.1 "Avenir Next","Segoe UI",sans-serif; letter-spacing:.03em; }
+.rsvp-unlocks small { display:block; max-width:460px; color:var(--muted); font:italic 12px/1.55 "Iowan Old Style","Palatino Linotype",Georgia,serif; }
 .rsvp-editor .rsvp-form { margin-top:22px; padding:0; border:0; background:transparent; }
 .rsvp-sheet>.rsvp-editor { width:100%; }
 .plus-one-block { margin-top:4px; }
